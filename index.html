@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Panel - Movie LinkBD</title>
   <style>
-    body {
+       body {
       margin: 0;
       padding: 0;
       background-color: #141414;
@@ -159,7 +159,7 @@
         display: flex;
         gap: 10px;
       }
-    }
+    
   </style>
 </head>
 <body>
@@ -189,9 +189,11 @@
     </div>
   </div>
 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
   <script>
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAc3APo52hRdnqdkLm4thLGtp0sviNwuWk",
       authDomain: "support-ticket-dd29b.firebaseapp.com",
@@ -212,10 +214,10 @@
       e.preventDefault();
       const movieId = document.getElementById('movieId').value;
       const movieData = {
-        name: document.getElementById('name').value,
-        rating: document.getElementById('rating').value,
-        poster: document.getElementById('poster').value,
-        downloadLink: document.getElementById('downloadLink').value
+        name: document.getElementById('name').value.trim(),
+        rating: document.getElementById('rating').value.trim(),
+        poster: document.getElementById('poster').value.trim(),
+        downloadLink: document.getElementById('downloadLink').value.trim()
       };
       if (movieId) {
         db.ref('movies/' + movieId).update(movieData);
@@ -223,62 +225,76 @@
         db.ref('movies').push({ ...movieData, downloadCount: 0 });
       }
       form.reset();
+      document.getElementById('movieId').value = '';
     });
 
-    db.ref('movies').on('value', snapshot => {
-      movieList.innerHTML = '<h2>Movie List</h2>';
-      snapshot.forEach(child => {
-        const movie = child.val();
-        const id = child.key;
-        const div = document.createElement('div');
-        div.className = 'movie-card';
+    function renderMovieList() {
+      db.ref('movies').on('value', snapshot => {
+        movieList.innerHTML = '<h2>Movie List</h2>';
+        if (!snapshot.exists()) {
+          movieList.innerHTML += '<p>No movies available.</p>';
+          return;
+        }
 
-        const count = movie.downloadCount ?? 0;
+        snapshot.forEach(child => {
+          const movie = child.val();
+          const id = child.key;
+          const div = document.createElement('div');
+          div.className = 'movie-card';
 
-        div.innerHTML = `
-          <div class="movie-card-info">
-            <strong>${movie.name}</strong>
-            <div class="rating">⭐ Rating: ${movie.rating}</div>
-            <img src="${movie.poster}" alt="${movie.name}" />
-            <div><a href="#" class="download-link" data-id="${id}" data-link="${movie.downloadLink}">Download</a></div>
-            <div class="download-count">📥 Downloaded ${count} times</div>
-          </div>
-          <div class="movie-card-actions">
-            <button class="edit">Edit</button>
-            <button class="delete">Delete</button>
-          </div>
-        `;
+          const count = movie.downloadCount ?? 0;
 
-        div.querySelector('.edit').onclick = () => {
-          document.getElementById('movieId').value = id;
-          document.getElementById('name').value = movie.name;
-          document.getElementById('rating').value = movie.rating;
-          document.getElementById('poster').value = movie.poster;
-          document.getElementById('downloadLink').value = movie.downloadLink;
-        };
+          div.innerHTML = `
+            <div class="movie-card-info">
+              <strong>${movie.name}</strong>
+              <div class="rating">⭐ Rating: ${movie.rating}</div>
+              <img src="${movie.poster}" alt="${movie.name}" />
+              <div><a href="#" class="download-link" data-id="${id}" data-link="${movie.downloadLink}">Download</a></div>
+              <div class="download-count">📥 Downloaded ${count} times</div>
+            </div>
+            <div class="movie-card-actions">
+              <button class="edit">Edit</button>
+              <button class="delete">Delete</button>
+            </div>
+          `;
 
-        div.querySelector('.delete').onclick = () => {
-          if (confirm("Are you sure you want to delete this movie?")) {
-            db.ref('movies/' + id).remove();
-          }
-        };
+          // Edit movie
+          div.querySelector('.edit').onclick = () => {
+            document.getElementById('movieId').value = id;
+            document.getElementById('name').value = movie.name;
+            document.getElementById('rating').value = movie.rating;
+            document.getElementById('poster').value = movie.poster;
+            document.getElementById('downloadLink').value = movie.downloadLink;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          };
 
-        div.querySelector('.download-link').onclick = (e) => {
-          e.preventDefault();
-          const movieId = e.target.getAttribute("data-id");
-          const downloadUrl = e.target.getAttribute("data-link");
-          const movieRef = db.ref("movies/" + movieId + "/downloadCount");
+          // Delete movie
+          div.querySelector('.delete').onclick = () => {
+            if (confirm("Are you sure you want to delete this movie?")) {
+              db.ref('movies/' + id).remove();
+            }
+          };
 
-          movieRef.transaction((currentCount) => {
-            return (currentCount || 0) + 1;
-          });
+          // Count download
+          div.querySelector('.download-link').onclick = (e) => {
+            e.preventDefault();
+            const movieId = e.target.getAttribute("data-id");
+            const downloadUrl = e.target.getAttribute("data-link");
+            const movieRef = db.ref("movies/" + movieId + "/downloadCount");
 
-          window.open(downloadUrl, '_blank');
-        };
+            movieRef.transaction((currentCount) => {
+              return (currentCount || 0) + 1;
+            });
 
-        movieList.appendChild(div);
+            window.open(downloadUrl, '_blank');
+          };
+
+          movieList.appendChild(div);
+        });
       });
-    });
+    }
+
+    renderMovieList();
   </script>
 </body>
 </html>
