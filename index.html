@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Panel - Movie LinkBD</title>
   <style>
-       body {
+    body {
       margin: 0;
       padding: 0;
       background-color: #141414;
@@ -41,7 +41,7 @@
       font-weight: bold;
     }
 
-    input {
+    input, select {
       width: 100%;
       padding: 12px;
       margin-top: 8px;
@@ -50,6 +50,36 @@
       background-color: #333;
       color: #fff;
       font-size: 16px;
+    }
+
+    select {
+      height: 45px;
+    }
+
+    .genre-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .genre-tag {
+      background-color: #444;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+    }
+
+    .genre-tag button {
+      background: none;
+      border: none;
+      color: #ff6b6b;
+      margin-left: 5px;
+      cursor: pointer;
+      padding: 0;
     }
 
     button {
@@ -82,6 +112,15 @@
 
     button.delete:hover {
       background-color: #a71d2a;
+    }
+
+    button.add-genre {
+      background-color: #28a745;
+      margin-top: 10px;
+    }
+
+    button.add-genre:hover {
+      background-color: #218838;
     }
 
     .movie-list {
@@ -119,6 +158,21 @@
     .movie-card-info .rating {
       font-size: 16px;
       margin: 5px 0;
+    }
+
+    .movie-card-info .genres {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 10px 0;
+    }
+
+    .movie-card-info .genre {
+      background-color: #333;
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
     }
 
     .movie-card-info a {
@@ -190,6 +244,23 @@
         <label for="downloadLink">Download Link:</label>
         <input type="url" id="downloadLink" required />
 
+        <label for="genreInput">Genres:</label>
+        <div style="display: flex; gap: 10px;">
+          <select id="genreInput">
+            <option value="action">Action</option>
+            <option value="thriller">Thriller</option>
+            <option value="horror">Horror</option>
+            <option value="drama">Drama</option>
+            <option value="romantic">Romantic</option>
+            <option value="comedy">Comedy</option>
+            <option value="sci-fi">Sci-Fi</option>
+            <option value="adventure">Adventure</option>
+          </select>
+          <button type="button" class="add-genre" onclick="addGenre()">Add Genre</button>
+        </div>
+        
+        <div id="selectedGenres" class="genre-tags"></div>
+
         <button type="submit">Save Movie</button>
       </form>
     </div>
@@ -220,6 +291,39 @@
 
     const form = document.getElementById('movieForm');
     const movieList = document.getElementById('movieList');
+    const selectedGenresContainer = document.getElementById('selectedGenres');
+    let currentGenres = [];
+
+    // Add genre to the selected list
+    function addGenre() {
+      const genreSelect = document.getElementById('genreInput');
+      const genre = genreSelect.value;
+      
+      if (!currentGenres.includes(genre)) {
+        currentGenres.push(genre);
+        renderSelectedGenres();
+      }
+    }
+
+    // Remove genre from the selected list
+    function removeGenre(genre) {
+      currentGenres = currentGenres.filter(g => g !== genre);
+      renderSelectedGenres();
+    }
+
+    // Render selected genres
+    function renderSelectedGenres() {
+      selectedGenresContainer.innerHTML = '';
+      currentGenres.forEach(genre => {
+        const tag = document.createElement('div');
+        tag.className = 'genre-tag';
+        tag.innerHTML = `
+          ${genre} 
+          <button onclick="removeGenre('${genre}')">×</button>
+        `;
+        selectedGenresContainer.appendChild(tag);
+      });
+    }
 
     form.addEventListener('submit', e => {
       e.preventDefault();
@@ -228,15 +332,20 @@
         name: document.getElementById('name').value.trim(),
         rating: document.getElementById('rating').value.trim(),
         poster: document.getElementById('poster').value.trim(),
-        downloadLink: document.getElementById('downloadLink').value.trim()
+        downloadLink: document.getElementById('downloadLink').value.trim(),
+        genre: [...currentGenres] // Copy the array
       };
+      
       if (movieId) {
         db.ref('movies/' + movieId).update(movieData);
       } else {
-        db.ref('movies').push({ ...movieData, downloadCount: 0 });
+        db.ref('movies').push({ ...movieData, downloads: 0 });
       }
+      
       form.reset();
       document.getElementById('movieId').value = '';
+      currentGenres = [];
+      renderSelectedGenres();
     });
 
     function renderMovieList() {
@@ -253,12 +362,16 @@
           const div = document.createElement('div');
           div.className = 'movie-card';
 
-          const count = movie.downloadCount ?? 0;
+          const count = movie.downloads ?? 0;
+          const genres = movie.genre || [];
 
           div.innerHTML = `
             <div class="movie-card-info">
               <strong>${movie.name}</strong>
               <div class="rating">⭐ Rating: ${movie.rating}</div>
+              <div class="genres">
+                ${genres.map(g => `<span class="genre">${g}</span>`).join('')}
+              </div>
               <img src="${movie.poster}" alt="${movie.name}" />
               <div><a href="#" class="download-link" data-id="${id}" data-link="${movie.downloadLink}">Download</a></div>
               <div class="download-count">📥 Downloaded ${count} times</div>
@@ -275,6 +388,11 @@
             document.getElementById('rating').value = movie.rating;
             document.getElementById('poster').value = movie.poster;
             document.getElementById('downloadLink').value = movie.downloadLink;
+            
+            // Set genres for editing
+            currentGenres = [...(movie.genre || [])];
+            renderSelectedGenres();
+            
             window.scrollTo({ top: 0, behavior: 'smooth' });
           };
 
@@ -288,7 +406,7 @@
             e.preventDefault();
             const movieId = e.target.getAttribute("data-id");
             const downloadUrl = e.target.getAttribute("data-link");
-            const movieRef = db.ref("movies/" + movieId + "/downloadCount");
+            const movieRef = db.ref("movies/" + movieId + "/downloads");
 
             movieRef.transaction((currentCount) => {
               return (currentCount || 0) + 1;
