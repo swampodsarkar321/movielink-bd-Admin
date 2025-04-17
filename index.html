@@ -159,12 +159,22 @@
         display: flex;
         gap: 10px;
       }
-    
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Admin Panel - Movie LinkBD</h1>
+
+    <!-- Notice Message Form -->
+    <div class="form-container">
+      <h2>Post Notice Message</h2>
+      <label for="noticeText">Notice:</label>
+      <input type="text" id="noticeText" placeholder="Write notice message..." />
+      <button onclick="postNotice()">Post Notice</button>
+    </div>
+
+    <!-- Movie Form -->
     <div class="form-container">
       <form id="movieForm">
         <input type="hidden" id="movieId" />
@@ -184,6 +194,7 @@
       </form>
     </div>
 
+    <!-- Movie List -->
     <div class="movie-list" id="movieList">
       <h2>Movie List</h2>
     </div>
@@ -258,7 +269,6 @@
             </div>
           `;
 
-          // Edit movie
           div.querySelector('.edit').onclick = () => {
             document.getElementById('movieId').value = id;
             document.getElementById('name').value = movie.name;
@@ -268,14 +278,12 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
           };
 
-          // Delete movie
           div.querySelector('.delete').onclick = () => {
             if (confirm("Are you sure you want to delete this movie?")) {
               db.ref('movies/' + id).remove();
             }
           };
 
-          // Count download
           div.querySelector('.download-link').onclick = (e) => {
             e.preventDefault();
             const movieId = e.target.getAttribute("data-id");
@@ -295,6 +303,25 @@
     }
 
     renderMovieList();
+
+    // Notice message function
+    function postNotice() {
+      const message = document.getElementById('noticeText').value.trim();
+      if (!message) {
+        alert("Please enter a notice message.");
+        return;
+      }
+      db.ref('notice').set({
+        message: message,
+        timestamp: new Date().toISOString()
+      }).then(() => {
+        alert("Notice posted successfully!");
+        document.getElementById('noticeText').value = "";
+      }).catch(err => {
+        alert("Failed to post notice.");
+        console.error(err);
+      });
+    }
   </script>
 </body>
 </html>
