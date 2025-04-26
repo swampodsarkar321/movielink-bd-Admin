@@ -354,6 +354,53 @@
       margin-right: 5px;
     }
 
+    /* Ad List */
+    .ad-list {
+      background-color: var(--card-bg);
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      margin-bottom: 30px;
+    }
+
+    .ad-card {
+      border-bottom: 1px solid #333;
+      padding: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ad-card:last-child {
+      border-bottom: none;
+    }
+
+    .ad-card-info {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .ad-card-info h3 {
+      font-size: 18px;
+      color: var(--text-color);
+      margin-bottom: 8px;
+    }
+
+    .ad-card-image {
+      max-width: 200px;
+      max-height: 100px;
+      border-radius: 5px;
+      margin-right: 20px;
+      object-fit: contain;
+    }
+
+    .ad-card-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
     /* Responsive Styles */
     @media (max-width: 768px) {
       .login-box {
@@ -372,6 +419,21 @@
       }
 
       .movie-card-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .ad-card {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .ad-card-image {
+        margin-bottom: 15px;
+        margin-right: 0;
+      }
+
+      .ad-card-actions {
         width: 100%;
         justify-content: space-between;
       }
@@ -409,6 +471,34 @@
       <label for="noticeText">Notice Message:</label>
       <input type="text" id="noticeText" placeholder="Write notice message..." />
       <button class="btn btn-primary" id="postNoticeBtn"><i class="fas fa-paper-plane"></i> Post Notice</button>
+    </div>
+
+    <!-- Header Ad Form -->
+    <div class="form-container">
+      <h2><i class="fas fa-ad"></i> Header Advertisement</h2>
+      <form id="adForm">
+        <input type="hidden" id="adId" />
+        
+        <label for="adText">Ad Text:</label>
+        <input type="text" id="adText" placeholder="Enter advertisement text" />
+        
+        <label for="adImage">Image URL:</label>
+        <input type="url" id="adImage" placeholder="Enter image URL" />
+        
+        <label for="adLink">Link URL:</label>
+        <input type="url" id="adLink" placeholder="Enter link URL" />
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Ad</button>
+          <button type="reset" class="btn btn-danger" id="resetAdBtn"><i class="fas fa-times"></i> Reset</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Ad List -->
+    <div class="ad-list">
+      <h2><i class="fas fa-list"></i> Header Ads</h2>
+      <div id="adsContainer"></div>
     </div>
 
     <!-- Movie Form -->
@@ -510,8 +600,11 @@
     const logoutBtn = document.getElementById('logoutBtn');
     const postNoticeBtn = document.getElementById('postNoticeBtn');
     const resetBtn = document.getElementById('resetBtn');
+    const resetAdBtn = document.getElementById('resetAdBtn');
     const movieForm = document.getElementById('movieForm');
+    const adForm = document.getElementById('adForm');
     const moviesContainer = document.getElementById('moviesContainer');
+    const adsContainer = document.getElementById('adsContainer');
     const selectedGenresContainer = document.getElementById('selectedGenres');
     const errorMessage = document.getElementById('errorMessage');
     
@@ -527,6 +620,7 @@
         loginContainer.style.display = 'none';
         adminContainer.style.display = 'block';
         loadMovies();
+        loadAds();
       } else {
         isLoggedIn = false;
         loginContainer.style.display = 'flex';
@@ -609,6 +703,11 @@
       renderSelectedGenres();
     });
 
+    // Reset ad form
+    resetAdBtn.addEventListener('click', () => {
+      document.getElementById('adId').value = '';
+    });
+
     // Save movie
     movieForm.addEventListener('submit', e => {
       e.preventDefault();
@@ -664,6 +763,50 @@
       document.getElementById('movieId').value = '';
       currentGenres = [];
       renderSelectedGenres();
+    });
+
+    // Save ad
+    adForm.addEventListener('submit', e => {
+      e.preventDefault();
+      
+      if (!isLoggedIn) {
+        alert('Please login first');
+        return;
+      }
+
+      const adId = document.getElementById('adId').value;
+      const adData = {
+        text: document.getElementById('adText').value.trim(),
+        image: document.getElementById('adImage').value.trim(),
+        link: document.getElementById('adLink').value.trim(),
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      };
+      
+      if (!adData.text && !adData.image) {
+        alert('Please provide either ad text or image');
+        return;
+      }
+      
+      if (adId) {
+        db.ref('headerAds/' + adId).update(adData)
+          .then(() => {
+            alert('Ad updated successfully!');
+          })
+          .catch(error => {
+            alert('Error updating ad: ' + error.message);
+          });
+      } else {
+        db.ref('headerAds').push(adData)
+          .then(() => {
+            alert('Ad added successfully!');
+          })
+          .catch(error => {
+            alert('Error adding ad: ' + error.message);
+          });
+      }
+      
+      adForm.reset();
+      document.getElementById('adId').value = '';
     });
 
     // Post notice
@@ -759,6 +902,56 @@
       });
     }
 
+    // Load and render ads
+    function loadAds() {
+      db.ref('headerAds').on('value', snapshot => {
+        adsContainer.innerHTML = '';
+        
+        if (!snapshot.exists()) {
+          adsContainer.innerHTML = '<p>No ads available.</p>';
+          return;
+        }
+
+        const ads = [];
+        snapshot.forEach(child => {
+          ads.push({
+            id: child.key,
+            ...child.val()
+          });
+        });
+        
+        ads.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        ads.forEach(ad => {
+          const div = document.createElement('div');
+          div.className = 'ad-card';
+          
+          const image = ad.image || 'https://via.placeholder.com/200x100?text=No+Image';
+
+          div.innerHTML = `
+            ${ad.image ? `<img src="${image}" alt="Ad" class="ad-card-image">` : ''}
+            <div class="ad-card-info">
+              <h3>${ad.text || 'Image Ad'}</h3>
+              <p style="margin: 5px 0; color: var(--text-muted);">${ad.link || 'No link provided'}</p>
+              <div class="ad-card-actions">
+                <button class="btn btn-secondary edit-ad-btn" data-id="${ad.id}">
+                  <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-danger delete-ad-btn" data-id="${ad.id}">
+                  <i class="fas fa-trash"></i> Delete
+                </button>
+              </div>
+            </div>
+          `;
+
+          div.querySelector('.edit-ad-btn').addEventListener('click', () => editAd(ad));
+          div.querySelector('.delete-ad-btn').addEventListener('click', () => deleteAd(ad.id));
+
+          adsContainer.appendChild(div);
+        });
+      });
+    }
+
     // Edit movie
     function editMovie(movie) {
       document.getElementById('movieId').value = movie.id;
@@ -780,6 +973,16 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // Edit ad
+    function editAd(ad) {
+      document.getElementById('adId').value = ad.id;
+      document.getElementById('adText').value = ad.text || '';
+      document.getElementById('adImage').value = ad.image || '';
+      document.getElementById('adLink').value = ad.link || '';
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     // Delete movie
     function deleteMovie(id) {
       if (confirm("Are you sure you want to delete this movie?")) {
@@ -789,6 +992,19 @@
           })
           .catch(error => {
             alert('Error deleting movie: ' + error.message);
+          });
+      }
+    }
+
+    // Delete ad
+    function deleteAd(id) {
+      if (confirm("Are you sure you want to delete this ad?")) {
+        db.ref('headerAds/' + id).remove()
+          .then(() => {
+            alert('Ad deleted successfully!');
+          })
+          .catch(error => {
+            alert('Error deleting ad: ' + error.message);
           });
       }
     }
